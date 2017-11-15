@@ -20,21 +20,37 @@
 
 // Includes ///////////////////////////////////////////////////////////////////
 
+#include <glib.h>
+#include <pthread.h>
+#include <lame/lame.h>
+
 // Definitions ////////////////////////////////////////////////////////////////
 
-#define MAX_FILENAME_SIZE 255
+#define MAX_THREAD 16
 
 // Macros /////////////////////////////////////////////////////////////////////
 
 // Datatypes, Structures and Enumerations /////////////////////////////////////
 
+typedef struct {
+  lame_t gf;
+  GList *filename_list;
+  int num_files;
+  int num_cores;
+  int next_pos_process;
+  pthread_t thread[MAX_THREAD];
+  pthread_mutex_t lock;
+} mp3_encoder_t;
+
 // Public Variabels ///////////////////////////////////////////////////////////
 
 // Public Functions ///////////////////////////////////////////////////////////
 
-int mp3_encoder_init(char *folder_name);
+int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name);
 
-int mp3_encoder_finish(void);
+int mp3_encoder_process(mp3_encoder_t *mp3_encoder);
+
+int mp3_encoder_finish(mp3_encoder_t *mp3_encoder);
 
 #endif // __MP3_ENCODER_H__
 // EOF

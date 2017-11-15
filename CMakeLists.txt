@@ -20,6 +20,7 @@ find_package (PkgConfig REQUIRED)
 enable_language(C)
 
 message(STATUS "We are on a ${CMAKE_SYSTEM_NAME} system")
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   add_definitions(-DSYSTEM_LINUX)
 endif()
@@ -35,7 +36,7 @@ endif()
 
 message(STATUS "The host processor is ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
-##### glib
+#### glib
 pkg_check_modules (GLIB glib-2.0)
 
 link_directories (${GLIB_LIBRARY_DIRS})
@@ -43,10 +44,10 @@ include_directories (${GLIB_INCLUDE_DIRS})
 
 #### MP3 encoder
 add_executable (mp3_encoder
-  src/mp3_encoder_main.c
+  src/main.c
   src/mp3_encoder.c
   )
-target_link_libraries (mp3_encoder ${GLIB_LIBRARIES})
+target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame.a m pthread)
 add_compile_options (-Wall -Werror -ggdb)
 
 include_directories(

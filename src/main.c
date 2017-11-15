@@ -25,7 +25,6 @@
 // Definitions ////////////////////////////////////////////////////////////////
 
 #define MAX_ARGS 2
-#define MAX_FOLDER_SIZE 255
 
 // Macros /////////////////////////////////////////////////////////////////////
 
@@ -48,7 +47,8 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
-  char folder_name[MAX_FOLDER_SIZE];
+  char folder_name[PATH_MAX];
+  mp3_encoder_t mp3_encoder;
 
   if (argc != MAX_ARGS) {
     usage();
@@ -60,12 +60,17 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  if (mp3_encoder_init(folder_name) < 0) {
+  if (mp3_encoder_init(&mp3_encoder, folder_name) < 0) {
     printf("Unable init mp3 encoder\n");
     return -1;
   }
 
-  if (mp3_encoder_finish() < 0) {
+  if (mp3_encoder_process(&mp3_encoder) < 0) {
+    printf("Error processing\n");
+    return -1;
+  }
+
+  if (mp3_encoder_finish(&mp3_encoder) < 0) {
     printf("Unable finish mp3 encoder\n");
     return -1;
   }

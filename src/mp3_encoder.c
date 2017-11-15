@@ -21,16 +21,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include <glib.h>
-#include <lame/lame.h>
+#include <unistd.h>
 #include "mp3_encoder.h"
 
 // Definitions ////////////////////////////////////////////////////////////////
 
-#define DEBUG
+//#define DEBUG
 
-#define LOG_IDENTIFICATION      "[MP3-ENCODER]"
-#define LOG_FACILITY            LOG_LOCAL1
 #define WAV_EXTENSION           ".wav"
 #define EXTENSION_SIZE          4
 
@@ -43,8 +40,6 @@
 // Public Variables ///////////////////////////////////////////////////////////
 
 // Private Variables //////////////////////////////////////////////////////////
-
-static GList *filename_list = NULL;
 
 // Private Functions //////////////////////////////////////////////////////////
 
@@ -75,7 +70,7 @@ static int check_wav_extension(char *filename)
   return 0;
 }
 
-static int get_wav_list(char *folder_name)
+static int get_wav_list(GList **filename_list, char *folder_name)
 {
   struct dirent **namelist;
   int num_files;
@@ -91,36 +86,119 @@ static int get_wav_list(char *folder_name)
 
   for (i = 0; i < num_files; i++) {
     if (check_wav_extension(namelist[i]->d_name) == 0) {
-      filename_list = g_list_append(filename_list, namelist[i]->d_name);
+      *filename_list = g_list_append(*filename_list, namelist[i]->d_name);
     }
   }
 
   return 0;
 }
 
-// Public Functions ///////////////////////////////////////////////////////////
-
-int mp3_encoder_init(char *folder_name)
+static int get_num_cores(void)
 {
-  if (get_wav_list(folder_name) < 0) {
-    printf("Unable get wav files\n");
-    return -1;
-  }
+  return sysconf(_SC_NPROCESSORS_ONLN);
+}
 
-#ifdef DEBUG
-  GList *elem;
-  for (elem = g_list_first(filename_list); elem != NULL ; elem = g_list_next(elem)) {
-    printf("%s\n", (char *) elem->data);
-  }
-#endif
+static int convert(gpointer *filename)
+{
+  printf("converting %s\n", (char *)filename);
 
   return 0;
 }
 
-int mp3_encoder_finish(void)
+static void *thread_func(void *arg)
 {
+  mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
+  gpointer *filename;
+  int pos;
 
-  g_list_free(filename_list);
+  if (!mp3_encoder) {
+    printf("eh nulo\n");
+  }
+
+  while (1) {
+
+    pthread_mutex_lock(&mp3_encoder->lock);
+    pos = mp3_encoder->next_pos_process;
+    mp3_encoder->next_pos_process++;
+    pthread_mutex_unlock(&mp3_encoder->lock);
+
+    if (pos >= mp3_encoder->num_files) {
+      break;
+    }
+
+    filename = g_list_nth_data(mp3_encoder->filename_list, pos);
+    if (filename) {
+      convert(filename);
+    }
+  }
+}
+
+// Public Functions ///////////////////////////////////////////////////////////
+
+int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
+{
+  mp3_encoder->filename_list = NULL;
+  mp3_encoder->num_cores = 0;
+  mp3_encoder->next_pos_process = 0;
+
+  if (get_wav_list(&mp3_encoder->filename_list, folder_name) < 0) {
+    printf("Unable get wav files\n");
+    return -1;
+  }
+
+  mp3_encoder->num_files = g_list_length(mp3_encoder->filename_list);
+  if (mp3_encoder->num_files == 0) {
+    printf("Folder empty\n");
+    return 0;
+  }
+
+#ifdef DEBUG
+  GList *elem;
+  for (elem = g_list_first(mp3_encoder->filename_list); elem != NULL ; elem = g_list_next(elem)) {
+    printf("%s\n", (char *) elem->data);
+  }
+#endif
+
+  if (pthread_mutex_init(&mp3_encoder->lock, NULL) != 0) {
+    printf("\n mutex init failed\n");
+    return 1;
+  }
+
+  mp3_encoder->num_cores = get_num_cores();
+
+  mp3_encoder->gf = lame_init();
+  if (!mp3_encoder->gf) {
+    printf("Error during initialization\n");
+    return -1;
+  }
+
+  return 0;
+}
+
+int mp3_encoder_process(mp3_encoder_t *mp3_encoder)
+{
+  int i;
+
+  for (i = 0; i < mp3_encoder->num_cores; i++) {
+    pthread_create(&mp3_encoder->thread[i], NULL, thread_func, mp3_encoder);
+  }
+
+  return 0;
+}
+
+int mp3_encoder_finish(mp3_encoder_t *mp3_encoder)
+{
+  int i;
+
+  for (i = 0; i < mp3_encoder->num_cores; i++) {
+    pthread_join(mp3_encoder->thread[i], NULL);
+  }
+
+  g_list_free(mp3_encoder->filename_list);
+
+  lame_close(mp3_encoder->gf);
+
+  pthread_mutex_destroy(&mp3_encoder->lock);
 
   return 0;
 }
