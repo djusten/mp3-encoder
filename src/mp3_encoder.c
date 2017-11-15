@@ -30,6 +30,12 @@
 
 #define WAV_EXTENSION           ".wav"
 #define EXTENSION_SIZE          4
+#define         MAX_U_32_NUM            0xFFFFFFFF
+
+static int const WAV_ID_RIFF = 0x52494646; /* "RIFF" */
+static int const WAV_ID_WAVE = 0x57415645; /* "WAVE" */
+static int const WAV_ID_FMT = 0x666d7420; /* "fmt " */
+static int const WAV_ID_DATA = 0x64617461; /* "data" */
 
 // Macros /////////////////////////////////////////////////////////////////////
 
@@ -75,6 +81,7 @@ static int get_wav_list(GList **filename_list, char *folder_name)
   struct dirent **namelist;
   int num_files;
   int i;
+  char filename_complete[PATH_MAX];
 
   g_assert(folder_name);
 
@@ -86,7 +93,10 @@ static int get_wav_list(GList **filename_list, char *folder_name)
 
   for (i = 0; i < num_files; i++) {
     if (check_wav_extension(namelist[i]->d_name) == 0) {
-      *filename_list = g_list_append(*filename_list, namelist[i]->d_name);
+
+      snprintf(filename_complete, sizeof(filename_complete), "%s/%s", folder_name, namelist[i]->d_name);
+      //*filename_list = g_list_append(*filename_list, namelist[i]->d_name);
+      *filename_list = g_list_append(*filename_list, filename_complete);
     }
   }
 
@@ -98,9 +108,58 @@ static int get_num_cores(void)
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-static int convert(gpointer *filename)
+static int
+read_32_bits_high_low(FILE * fp)
 {
-  printf("converting %s\n", (char *)filename);
+  unsigned char bytes[4] = { 0, 0, 0, 0 };
+  fread(bytes, 1, 4, fp);
+  {
+    int32_t const low = bytes[3];
+    int32_t const medl = bytes[2];
+    int32_t const medh = bytes[1];
+    int32_t const high = (signed char) (bytes[0]);
+    return (high << 24) | (medh << 16) | (medl << 8) | low;
+  }
+}
+
+static int read_header(lame_t gf, char *filename)
+{
+  FILE   *music_in;
+
+  music_in = fopen(filename, "rb");
+  if (!music_in) {
+    printf("Unable open input file\n");
+    return -1;
+  }
+
+  int type = read_32_bits_high_low(music_in);
+
+  if (type == WAV_ID_RIFF) {
+    printf("wav\n");
+  }
+
+  read_32_bits_high_low(music_in);
+
+  if (type != WAV_ID_WAVE) {
+    fclose(music_in);
+    return -1;
+  }
+
+  lame_set_num_samples(gf, MAX_U_32_NUM);
+
+  fclose(music_in);
+
+  return 0;
+}
+
+static int convert(lame_t gf, gpointer *filename)
+{
+  char name[255];
+
+  strcpy(name, (char *) filename);
+  printf("converting %s\n", name);
+
+  read_header(gf, name);
 
   return 0;
 }
@@ -110,6 +169,7 @@ static void *thread_func(void *arg)
   mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
   gpointer *filename;
   int pos;
+  lame_t gf;
 
   if (!mp3_encoder) {
     printf("eh nulo\n");
@@ -118,18 +178,27 @@ static void *thread_func(void *arg)
   while (1) {
 
     pthread_mutex_lock(&mp3_encoder->lock);
-    pos = mp3_encoder->next_pos_process;
-    mp3_encoder->next_pos_process++;
+    pos = mp3_encoder->process_pos;
+    mp3_encoder->process_pos++;
     pthread_mutex_unlock(&mp3_encoder->lock);
 
     if (pos >= mp3_encoder->num_files) {
       break;
     }
 
+    gf = lame_init();
+    if (!gf) {
+      printf("Error during initialization\n");
+    }
+
+
+
     filename = g_list_nth_data(mp3_encoder->filename_list, pos);
     if (filename) {
-      convert(filename);
+      convert(gf, filename);
     }
+
+    lame_close(gf);
   }
 }
 
@@ -139,7 +208,7 @@ int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
 {
   mp3_encoder->filename_list = NULL;
   mp3_encoder->num_cores = 0;
-  mp3_encoder->next_pos_process = 0;
+  mp3_encoder->process_pos = 0;
 
   if (get_wav_list(&mp3_encoder->filename_list, folder_name) < 0) {
     printf("Unable get wav files\n");
@@ -166,12 +235,6 @@ int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
 
   mp3_encoder->num_cores = get_num_cores();
 
-  mp3_encoder->gf = lame_init();
-  if (!mp3_encoder->gf) {
-    printf("Error during initialization\n");
-    return -1;
-  }
-
   return 0;
 }
 
@@ -195,8 +258,6 @@ int mp3_encoder_finish(mp3_encoder_t *mp3_encoder)
   }
 
   g_list_free(mp3_encoder->filename_list);
-
-  lame_close(mp3_encoder->gf);
 
   pthread_mutex_destroy(&mp3_encoder->lock);
 

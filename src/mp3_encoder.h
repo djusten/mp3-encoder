@@ -33,11 +33,10 @@
 // Datatypes, Structures and Enumerations /////////////////////////////////////
 
 typedef struct {
-  lame_t gf;
   GList *filename_list;
   int num_files;
   int num_cores;
-  int next_pos_process;
+  int process_pos;
   pthread_t thread[MAX_THREAD];
   pthread_mutex_t lock;
 } mp3_encoder_t;
