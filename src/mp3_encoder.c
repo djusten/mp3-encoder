@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "mp3_encoder.h"
+#include "wave.h"
 
 // Definitions ////////////////////////////////////////////////////////////////
 
@@ -96,7 +97,7 @@ static int get_wav_list(GList **filename_list, char *folder_name)
 
       snprintf(filename_complete, sizeof(filename_complete), "%s/%s", folder_name, namelist[i]->d_name);
       //*filename_list = g_list_append(*filename_list, namelist[i]->d_name);
-      *filename_list = g_list_append(*filename_list, filename_complete);
+      *filename_list = g_list_append(*filename_list, g_strdup(filename_complete));
     }
   }
 
@@ -108,23 +109,12 @@ static int get_num_cores(void)
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-static int
-read_32_bits_high_low(FILE * fp)
+static int convert(lame_t gf, char *filename)
 {
-  unsigned char bytes[4] = { 0, 0, 0, 0 };
-  fread(bytes, 1, 4, fp);
-  {
-    int32_t const low = bytes[3];
-    int32_t const medl = bytes[2];
-    int32_t const medh = bytes[1];
-    int32_t const high = (signed char) (bytes[0]);
-    return (high << 24) | (medh << 16) | (medl << 8) | low;
-  }
-}
+  header_t header;
+  FILE *music_in;
 
-static int read_header(lame_t gf, char *filename)
-{
-  FILE   *music_in;
+  printf("converting %s\n", filename);
 
   music_in = fopen(filename, "rb");
   if (!music_in) {
@@ -132,34 +122,19 @@ static int read_header(lame_t gf, char *filename)
     return -1;
   }
 
-  int type = read_32_bits_high_low(music_in);
-
-  if (type == WAV_ID_RIFF) {
-    printf("wav\n");
-  }
-
-  read_32_bits_high_low(music_in);
-
-  if (type != WAV_ID_WAVE) {
+  if (wave_read_header(&header, gf, music_in) < 0) {
+    printf("unable read header\n");
     fclose(music_in);
     return -1;
   }
 
-  lame_set_num_samples(gf, MAX_U_32_NUM);
+  if (wave_converter(&header, gf, music_in) < 0) {
+    printf("unable converter\n");
+    fclose(music_in);
+    return -1;
+  }
 
   fclose(music_in);
-
-  return 0;
-}
-
-static int convert(lame_t gf, gpointer *filename)
-{
-  char name[255];
-
-  strcpy(name, (char *) filename);
-  printf("converting %s\n", name);
-
-  read_header(gf, name);
 
   return 0;
 }
@@ -167,7 +142,8 @@ static int convert(lame_t gf, gpointer *filename)
 static void *thread_func(void *arg)
 {
   mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
-  gpointer *filename;
+  gpointer *p;
+  char filename[128];
   int pos;
   lame_t gf;
 
@@ -191,10 +167,9 @@ static void *thread_func(void *arg)
       printf("Error during initialization\n");
     }
 
-
-
-    filename = g_list_nth_data(mp3_encoder->filename_list, pos);
-    if (filename) {
+    p = g_list_nth_data(mp3_encoder->filename_list, pos);
+    if (p) {
+      strncpy(filename, (const char *)p, sizeof(filename));
       convert(gf, filename);
     }
 

@@ -46,6 +46,7 @@ include_directories (${GLIB_INCLUDE_DIRS})
 add_executable (mp3_encoder
   src/main.c
   src/mp3_encoder.c
+  src/wave.c
   )
 target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame.a m pthread)
 add_compile_options (-Wall -Werror -ggdb)
