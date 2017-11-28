@@ -20,6 +20,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include "mp3_encoder.h"
 
 // Definitions ////////////////////////////////////////////////////////////////

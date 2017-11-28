@@ -84,9 +84,30 @@ static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const sh
 
 int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
 {
+  uint16_t skip;
+  int i;
+
   fread(header, 1, sizeof(header_t), music_in);
 
   swap(header);
+
+  if (header->subChunk2Id != WAV_ID_DATA) {
+    /* skip extension */
+    for (i = 0; i < header->subChunk1Size; i++) {
+      fread(&skip, 1, sizeof(skip), music_in);
+      if (skip != 0x6164) {
+        continue;
+      }
+      fread(&skip, 1, sizeof(skip), music_in);
+      if (skip != 0x6174) {
+        continue;
+      }
+
+      header->subChunk2Id = WAV_ID_DATA;
+      fread(&header->subChunk2Size, 1, sizeof(header->subChunk2Size), music_in);
+      break;
+    }
+  }
 
   if (header->chunkId != WAV_ID_RIFF) {
     printf("Unsupported audio format\n");
