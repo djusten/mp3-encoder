@@ -21,7 +21,7 @@ typedef struct {
   uint16_t bitPerSample; //BitsPerSample little
   uint32_t subChunk2Id; //subchunk2id big
   uint32_t subChunk2Size; //subchunk2size little
-} header_t;
+} __attribute__((__packed__)) header_t;
 
 header_t header;
 
@@ -37,7 +37,7 @@ int swap(header_t *header)
 
 int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const short *rightPcm, FILE *out)
 {
-  int numSamples = header.subChunk2Size / header.blockAlign / 2;
+  int numSamples = header.subChunk2Size / header.blockAlign;
   int mp3BufferSize = numSamples * 5 / 4 + 7200; // worst case estimate
   unsigned char mp3Buffer[mp3BufferSize];
 
@@ -63,6 +63,7 @@ int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const short *ri
 int main(int argc, char *argv[])
 {
   FILE *fp;
+  uint16_t skip;
   lame_global_flags *gf = lame_init();
 
   fp = fopen("onion.wav", "rb");
@@ -74,6 +75,31 @@ int main(int argc, char *argv[])
   fread(&header, 1, sizeof(header), fp);
 
   swap(&header);
+
+  if (header.subChunk2Id != 0x64617461) {
+    int i;
+    for (i = 0; i < 10; i++) {
+      printf("%d: %x\n", i, skip);
+      fread(&skip, 1, sizeof(skip), fp);
+      if (skip != 0x6164) {
+        continue;
+      }
+      printf("aui\n");
+      fread(&skip, 1, sizeof(skip), fp);
+      if (skip != 0x6174) {
+        continue;
+      }
+
+      header.subChunk2Id = 64617461;
+      fread(&header.subChunk2Size, 1, sizeof(header.subChunk2Size), fp);
+      break;
+
+      printf("%d: %x\n", i, skip);
+    }
+  }
+
+
+
 
   printf("chunkid: %x\n", header.chunkId);
   printf("chunksize: %x\n", header.chunkSize);
@@ -103,10 +129,10 @@ int main(int argc, char *argv[])
   lame_set_quality(gf, 3);
   lame_set_bWriteVbrTag(gf, 0);
 
-  short *leftPcm = malloc(header.subChunk2Size / header.numChannels / sizeof(short));
-  short *rightPcm = malloc(header.subChunk2Size / header.numChannels / sizeof(short));
+  short *leftPcm = malloc(header.subChunk2Size / header.numChannels * sizeof(short));
+  short *rightPcm = malloc(header.subChunk2Size / header.numChannels * sizeof(short));
 
-  for (idx = 0; idx < numSamples/2; idx++) {
+  for (idx = 0; idx < numSamples; idx++) {
     fread(&leftPcm[idx], 1, 2, fp);
     fread(&rightPcm[idx], 1, 2, fp);
   }
