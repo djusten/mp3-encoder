@@ -32,6 +32,7 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "AIX")
 endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   add_definitions(-DSYSTEM_WINDOWS)
+  SET(CMAKE_MAKE_PROGRAM /usr/bin/make.exe FORCE)
 endif()
 
 message(STATUS "The host processor is ${CMAKE_HOST_SYSTEM_PROCESSOR}")
