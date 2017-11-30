@@ -65,8 +65,6 @@ static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const sh
     return -1;
   }
 
-  printf("%d %d\n", numSamples, mp3BufferSize);
-
   fwrite((void *)mp3Buffer, sizeof(unsigned char), mp3size, out);
 
   int flushSize = lame_encode_flush(gfp, mp3Buffer, mp3BufferSize);
@@ -75,38 +73,52 @@ static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const sh
 
   lame_mp3_tags_fid(gfp, out);
 
-  printf("Wrote %d bytes\n", mp3size + flushSize);
+  //printf("Wrote %d bytes\n", mp3size + flushSize);
 
   return 0;
+}
+
+static int skip_extension(header_t *header, FILE *music_in)
+{
+  uint16_t skip;
+  int i;
+  uint32_t data = 0;
+
+  fread(&skip, 1, sizeof(skip), music_in);
+  skip = __bswap_16(skip);
+
+  for (i = 0; i < header->subChunk1Size; i++) {
+
+    data = data << 16;
+    fread(&skip, 1, sizeof(skip), music_in);
+    skip = __bswap_16(skip);
+    data = (data | skip);
+
+    if (data == WAV_ID_DATA) {
+      return 0;
+    }
+  }
+
+  return -1;
 }
 
 // Public Functions ///////////////////////////////////////////////////////////
 
 int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
 {
-  uint16_t skip;
-  int i;
 
   fread(header, 1, sizeof(header_t), music_in);
 
   swap(header);
 
   if (header->subChunk2Id != WAV_ID_DATA) {
-    /* skip extension */
-    for (i = 0; i < header->subChunk1Size; i++) {
-      fread(&skip, 1, sizeof(skip), music_in);
-      if (skip != 0x6164) {
-        continue;
-      }
-      fread(&skip, 1, sizeof(skip), music_in);
-      if (skip != 0x6174) {
-        continue;
-      }
-
-      header->subChunk2Id = WAV_ID_DATA;
-      fread(&header->subChunk2Size, 1, sizeof(header->subChunk2Size), music_in);
-      break;
+    if (skip_extension(header, music_in) < 0) {
+      printf("Unable skip extented header\n");
+      return -1;
     }
+
+    header->subChunk2Id = WAV_ID_DATA;
+    fread(&header->subChunk2Size, 1, sizeof(header->subChunk2Size), music_in);
   }
 
   if (header->chunkId != WAV_ID_RIFF) {
@@ -133,16 +145,13 @@ int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
   return 0;
 }
 
-int wave_converter(header_t *header, lame_t gf, FILE *music_in)
+int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_out)
 {
   FILE *outf;
-  char filename[128];
   static int i = 0;
   int idx;
 
-  snprintf(filename, sizeof(filename), "arquivo%d.mp3", i++);
-//  printf("gerando: [%s]\n", filename);
-  outf = fopen(filename, "w+b");
+  outf = fopen(filename_out, "w+b");
 
   lame_set_brate(gf, 192); // increase bitrate
   lame_set_quality(gf, 3);
@@ -160,7 +169,6 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in)
   lame_set_num_channels(gf, header->numChannels);
   lame_set_num_samples(gf, header->subChunk2Size / header->blockAlign);
   lame_set_in_samplerate(gf, header->sampleRatio);
-  //  lame_set_num_samples(gf, header->subChunk2Size / (header->numChannels * ((header->bitPerSample + 7) / 8)));
 
   if (lame_init_params(gf) != 0) {
     printf("error init params\n");

@@ -50,7 +50,7 @@ typedef struct {
 
 int wave_read_header(header_t *header, lame_t gf, FILE *music_in);
 
-int wave_converter(header_t *header, lame_t gf, FILE *music_in);
+int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_out);
 
 #endif // WAVE_ENCODER_H__
 // EOF

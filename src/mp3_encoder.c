@@ -30,6 +30,7 @@
 //#define DEBUG
 
 #define WAV_EXTENSION           ".wav"
+#define MP3_EXTENSION           ".mp3"
 #define EXTENSION_SIZE          4
 #define         MAX_U_32_NUM            0xFFFFFFFF
 
@@ -109,14 +110,14 @@ static int get_num_cores(void)
   return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
-static int convert(lame_t gf, char *filename)
+static int convert(lame_t gf, char *filename_in, char *filename_out)
 {
   header_t header;
   FILE *music_in;
 
-  printf("converting %s\n", filename);
+  printf("Converting %s to %s\n", filename_in, filename_out);
 
-  music_in = fopen(filename, "rb");
+  music_in = fopen(filename_in, "rb");
   if (!music_in) {
     printf("Unable open input file\n");
     return -1;
@@ -128,7 +129,7 @@ static int convert(lame_t gf, char *filename)
     return -1;
   }
 
-  if (wave_converter(&header, gf, music_in) < 0) {
+  if (wave_converter(&header, gf, music_in, filename_out) < 0) {
     printf("unable converter\n");
     fclose(music_in);
     return -1;
@@ -143,7 +144,8 @@ static void *thread_func(void *arg)
 {
   mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
   gpointer *p;
-  char filename[128];
+  char filename_in[128];
+  char filename_out[128];
   int pos;
   lame_t gf;
 
@@ -169,8 +171,16 @@ static void *thread_func(void *arg)
 
     p = g_list_nth_data(mp3_encoder->filename_list, pos);
     if (p) {
-      strncpy(filename, (const char *)p, sizeof(filename));
-      convert(gf, filename);
+
+      memset(filename_in, '\0', sizeof(filename_in));
+      memset(filename_out, '\0', sizeof(filename_out));
+
+      strncpy(filename_in, (const char *)p, sizeof(filename_in));
+
+      strncpy(filename_out, filename_in, strlen(filename_in) - EXTENSION_SIZE);
+      strncat(filename_out, MP3_EXTENSION, strlen(MP3_EXTENSION));
+
+      convert(gf, filename_in, filename_out);
     }
 
     lame_close(gf);
