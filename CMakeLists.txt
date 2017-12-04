@@ -43,7 +43,12 @@ add_executable (mp3_encoder
   src/mp3_encoder.c
   src/wave.c
   )
-target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame.a m pthread)
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame.a m pthread)
+else()
+  target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame m pthread)
+endif()
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/src
