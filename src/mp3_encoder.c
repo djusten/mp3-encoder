@@ -57,18 +57,16 @@ static int check_wav_extension(char *filename)
 
   p = strrchr(filename, '.');
   if (!p || p == filename) {
-    printf("Unable get file extension\n");
     return -1;
   }
 
   if (strlen(p) != EXTENSION_SIZE) {
-    printf("Unable get file extension, invalid size\n");
     return -1;
   }
 
   for (i = 0; i < EXTENSION_SIZE; i++) {
     if (tolower(p[i]) != WAV_EXTENSION[i]) {
-      return 1;
+      return -1;
     }
   }
 

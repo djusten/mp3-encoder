@@ -2,6 +2,7 @@
 
 PROJECT_DIR=`pwd`
 BUILD_DIR=${PROJECT_DIR}/build
+TRAINING_DIR=${PROJECT_DIR}/training
 SUDO=''
 
 prepare () {
@@ -42,6 +43,11 @@ build () {
     make
 }
 
+run () {
+  echo ">>> Running sample..."
+  ${BUILD_DIR}/mp3_encoder ${TRAINING_DIR}
+}
+
 clean () {
   echo ">>> Cleaning..."
   cd ${BUILD_DIR} 2> /dev/null && \
@@ -77,13 +83,14 @@ usage() {
   echo ""
   echo "  -p \t\tPrepare environment (requires sudo)"
   echo "  -b \t\tBuild"
+  echo "  -r \t\tRun sample test"
   echo "  -c \t\tClean"
   echo "  -d \t\tErase build dir"
   echo ""
 }
 
 RUN=0
-while getopts ":p :b :c :d" opt; do
+while getopts ":p :b :r :c :d" opt; do
   RUN=1
   case $opt in
     p)
@@ -94,6 +101,9 @@ while getopts ":p :b :c :d" opt; do
       ;;
     c)
       clean
+      ;;
+    r)
+      run
       ;;
     d)
       deepclean
