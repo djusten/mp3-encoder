@@ -29,6 +29,8 @@ endif()
 
 message(STATUS "The host processor is ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
+set(CMAKE_C_FLAGS "-Wall -Werror -Wextra -pedantic")
+
 #### glib
 pkg_check_modules (GLIB glib-2.0)
 
@@ -42,7 +44,6 @@ add_executable (mp3_encoder
   src/wave.c
   )
 target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame.a m pthread)
-add_compile_options (-Wall -Werror -ggdb)
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/src

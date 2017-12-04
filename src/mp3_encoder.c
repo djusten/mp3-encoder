@@ -48,9 +48,7 @@
 
 static int check_wav_extension(char *filename)
 {
-  int len;
   char *p;
-  char extension[EXTENSION_SIZE];
   int i;
 
   g_assert(filename);
@@ -126,7 +124,7 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
     return -1;
   }
 
-  if (wave_read_header(&header, gf, music_in) < 0) {
+  if (wave_read_header(&header, music_in) < 0) {
     printf("Unable read header\n");
     fclose(music_in);
     return -1;
@@ -151,7 +149,7 @@ static void *thread_func(void *arg)
   gpointer *p;
   char filename_in[FILENAME_LEN];
   char filename_out[FILENAME_LEN];
-  int pos;
+  int8_t pos;
   lame_t gf;
 
   g_assert(mp3_encoder);
@@ -188,6 +186,8 @@ static void *thread_func(void *arg)
 
     lame_close(gf);
   }
+
+  return 0;
 }
 
 // Public Functions ///////////////////////////////////////////////////////////

@@ -36,10 +36,10 @@
 
 // Private Variables //////////////////////////////////////////////////////////
 
-static int const WAV_ID_RIFF = 0x52494646; /* "RIFF" */
-static int const WAV_ID_WAVE = 0x57415645; /* "WAVE" */
-static int const WAV_ID_FMT = 0x666d7420; /* "fmt " */
-static int const WAV_ID_DATA = 0x64617461; /* "data" */
+static uint32_t const WAV_ID_RIFF = 0x52494646; /* "RIFF" */
+static uint32_t const WAV_ID_WAVE = 0x57415645; /* "WAVE" */
+static uint32_t const WAV_ID_FMT = 0x666d7420; /* "fmt " */
+static uint32_t const WAV_ID_DATA = 0x64617461; /* "data" */
 
 // Private Functions //////////////////////////////////////////////////////////
 
@@ -80,7 +80,7 @@ static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const sh
 static int skip_extension(header_t *header, FILE *music_in)
 {
   uint16_t skip;
-  int i;
+  uint8_t i;
   uint32_t data = 0;
 
   fread(&skip, 1, sizeof(skip), music_in);
@@ -103,7 +103,7 @@ static int skip_extension(header_t *header, FILE *music_in)
 
 // Public Functions ///////////////////////////////////////////////////////////
 
-int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
+int wave_read_header(header_t *header, FILE *music_in)
 {
   fread(header, 1, sizeof(header_t), music_in);
 
@@ -139,7 +139,6 @@ int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
 int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_out)
 {
   FILE *outf;
-  static int i = 0;
   int idx;
 
   outf = fopen(filename_out, "w+b");

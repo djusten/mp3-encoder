@@ -59,7 +59,7 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  if (strncpy(folder_name, argv[1], sizeof(folder_name)) < 0) {
+  if (!strncpy(folder_name, argv[1], sizeof(folder_name))) {
     printf("Unable get folder name\n");
     return -1;
   }
