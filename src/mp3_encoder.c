@@ -17,6 +17,7 @@
 
 // Includes ///////////////////////////////////////////////////////////////////
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,16 +29,10 @@
 // Definitions ////////////////////////////////////////////////////////////////
 
 //#define DEBUG
-
-#define WAV_EXTENSION           ".wav"
-#define MP3_EXTENSION           ".mp3"
-#define EXTENSION_SIZE          4
-#define         MAX_U_32_NUM            0xFFFFFFFF
-
-static int const WAV_ID_RIFF = 0x52494646; /* "RIFF" */
-static int const WAV_ID_WAVE = 0x57415645; /* "WAVE" */
-static int const WAV_ID_FMT = 0x666d7420; /* "fmt " */
-static int const WAV_ID_DATA = 0x64617461; /* "data" */
+#define WAV_EXTENSION ".wav"
+#define MP3_EXTENSION ".mp3"
+#define EXTENSION_SIZE 4
+#define FILENAME_LEN 128
 
 // Macros /////////////////////////////////////////////////////////////////////
 
@@ -62,16 +57,18 @@ static int check_wav_extension(char *filename)
 
   p = strrchr(filename, '.');
   if (!p || p == filename) {
+    printf("Unable get file extension\n");
     return -1;
   }
 
   if (strlen(p) != EXTENSION_SIZE) {
+    printf("Unable get file extension, invalid size\n");
     return -1;
   }
 
   for (i = 0; i < EXTENSION_SIZE; i++) {
-    if (p[i] != WAV_EXTENSION[i]) {
-      return -1;
+    if (tolower(p[i]) != WAV_EXTENSION[i]) {
+      return 1;
     }
   }
 
@@ -95,9 +92,7 @@ static int get_wav_list(GList **filename_list, char *folder_name)
 
   for (i = 0; i < num_files; i++) {
     if (check_wav_extension(namelist[i]->d_name) == 0) {
-
       snprintf(filename_complete, sizeof(filename_complete), "%s/%s", folder_name, namelist[i]->d_name);
-      //*filename_list = g_list_append(*filename_list, namelist[i]->d_name);
       *filename_list = g_list_append(*filename_list, g_strdup(filename_complete));
     }
   }
@@ -107,13 +102,23 @@ static int get_wav_list(GList **filename_list, char *folder_name)
 
 static int get_num_cores(void)
 {
-  return sysconf(_SC_NPROCESSORS_ONLN);
+  int num;
+
+  num = sysconf(_SC_NPROCESSORS_ONLN);
+  if (num > MAX_THREAD) {
+    num = MAX_THREAD;
+  }
+
+  return num;
 }
 
 static int convert(lame_t gf, char *filename_in, char *filename_out)
 {
   header_t header;
   FILE *music_in;
+
+  g_assert(filename_in);
+  g_assert(filename_out);
 
   printf("Converting %s to %s\n", filename_in, filename_out);
 
@@ -124,13 +129,13 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
   }
 
   if (wave_read_header(&header, gf, music_in) < 0) {
-    printf("unable read header\n");
+    printf("Unable read header\n");
     fclose(music_in);
     return -1;
   }
 
   if (wave_converter(&header, gf, music_in, filename_out) < 0) {
-    printf("unable converter\n");
+    printf("Unable converter\n");
     fclose(music_in);
     return -1;
   }
@@ -142,16 +147,16 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
 
 static void *thread_func(void *arg)
 {
+  g_assert(arg);
+
   mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
   gpointer *p;
-  char filename_in[128];
-  char filename_out[128];
+  char filename_in[FILENAME_LEN];
+  char filename_out[FILENAME_LEN];
   int pos;
   lame_t gf;
 
-  if (!mp3_encoder) {
-    printf("eh nulo\n");
-  }
+  g_assert(mp3_encoder);
 
   while (1) {
 
@@ -191,6 +196,9 @@ static void *thread_func(void *arg)
 
 int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
 {
+  g_assert(mp3_encoder);
+  g_assert(folder_name);
+
   mp3_encoder->filename_list = NULL;
   mp3_encoder->num_cores = 0;
   mp3_encoder->process_pos = 0;
@@ -214,7 +222,7 @@ int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
 #endif
 
   if (pthread_mutex_init(&mp3_encoder->lock, NULL) != 0) {
-    printf("\n mutex init failed\n");
+    printf("\n Mutex init failed\n");
     return 1;
   }
 
@@ -227,8 +235,12 @@ int mp3_encoder_process(mp3_encoder_t *mp3_encoder)
 {
   int i;
 
+  g_assert(mp3_encoder);
+
   for (i = 0; i < mp3_encoder->num_cores; i++) {
-    pthread_create(&mp3_encoder->thread[i], NULL, thread_func, mp3_encoder);
+    if (pthread_create(&mp3_encoder->thread[i], NULL, thread_func, mp3_encoder) != 0) {
+      printf("Unable create thread%d\n", i);
+    }
   }
 
   return 0;

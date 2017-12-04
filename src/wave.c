@@ -24,10 +24,7 @@
 #include "wave.h"
 #include <stdlib.h>
 
-
 // Definitions ////////////////////////////////////////////////////////////////
-
-#define         MAX_U_32_NUM            0xFFFFFFFF
 
 // Macros /////////////////////////////////////////////////////////////////////
 
@@ -56,7 +53,7 @@ static void swap(header_t *header)
 
 static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const short *rightPcm, FILE *out, int numSamples)
 {
-  int mp3BufferSize = numSamples * 5 / 4 + 7200; // worst case estimate
+  int mp3BufferSize = numSamples * 5 / 4 + 7200; //FIXME
   unsigned char mp3Buffer[mp3BufferSize];
 
   int mp3size = lame_encode_buffer(gfp, leftPcm, rightPcm, numSamples, mp3Buffer, mp3BufferSize);
@@ -73,7 +70,9 @@ static int encode_to_file(lame_global_flags *gfp, const short *leftPcm, const sh
 
   lame_mp3_tags_fid(gfp, out);
 
-  //printf("Wrote %d bytes\n", mp3size + flushSize);
+#ifdef DEBUG
+  printf("Wrote %d bytes\n", mp3size + flushSize);
+#endif
 
   return 0;
 }
@@ -106,7 +105,6 @@ static int skip_extension(header_t *header, FILE *music_in)
 
 int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
 {
-
   fread(header, 1, sizeof(header_t), music_in);
 
   swap(header);
@@ -130,17 +128,10 @@ int wave_read_header(header_t *header, lame_t gf, FILE *music_in)
     return -1;
   }
 
-  if (header->subChunk1Id == WAV_ID_FMT) {
-//    printf("FMT\n");
+  if (header->subChunk1Id != WAV_ID_FMT) {
+    printf("Unsupported audio format\n");
+    return -1;
   }
-  else if(header->subChunk1Id == WAV_ID_DATA) {
-    printf("ID\n");
-  }
-  else {
-    printf("ELSE\n");
-  }
-
-//  lame_set_num_samples(gf, MAX_U_32_NUM);
 
   return 0;
 }
@@ -153,8 +144,8 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_o
 
   outf = fopen(filename_out, "w+b");
 
-  lame_set_brate(gf, 192); // increase bitrate
-  lame_set_quality(gf, 3);
+  lame_set_brate(gf, 192); // increase bitrate FIXME
+  lame_set_quality(gf, 3); //FIXME
   lame_set_bWriteVbrTag(gf, 0);
 
   short *leftPcm = malloc(header->subChunk2Size / header->numChannels * sizeof(short));
@@ -171,12 +162,20 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_o
   lame_set_in_samplerate(gf, header->sampleRatio);
 
   if (lame_init_params(gf) != 0) {
-    printf("error init params\n");
+    printf("Error init params\n");
     fclose(outf);
+    free(leftPcm);
+    free(rightPcm);
     return -1;
   }
 
-  encode_to_file(gf, leftPcm, rightPcm, outf, numSamples);
+  if (encode_to_file(gf, leftPcm, rightPcm, outf, numSamples) < 0) {
+    printf("Unable encode to file\n");
+    fclose(outf);
+    free(leftPcm);
+    free(rightPcm);
+    return -1;
+  }
 
   fclose(outf);
 

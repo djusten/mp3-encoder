@@ -41,7 +41,7 @@
 
 static void usage(void)
 {
-  printf("mp3_encoder <file>\n");
+  printf("mp3_encoder <directory>\n");
 }
 
 // Public Functions ///////////////////////////////////////////////////////////
@@ -89,4 +89,3 @@ int main(int argc, char **argv)
 }
 
 // EOF
-

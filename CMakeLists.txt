@@ -14,21 +14,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 cmake_minimum_required (VERSION 3.0)
-project (mp3encoder)
+project (mp3encoder C)
 find_package (PkgConfig REQUIRED)
-
-enable_language(C)
 
 message(STATUS "We are on a ${CMAKE_SYSTEM_NAME} system")
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
   add_definitions(-DSYSTEM_LINUX)
-endif()
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-  add_definitions(-DSYSTEM_DARWIN)
-endif()
-if(${CMAKE_SYSTEM_NAME} STREQUAL "AIX")
-  add_definitions(-DSYSTEM_AIX)
 endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   add_definitions(-DSYSTEM_WINDOWS)
