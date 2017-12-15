@@ -31,8 +31,6 @@
 //#define DEBUG
 #define WAV_EXTENSION ".wav"
 #define MP3_EXTENSION ".mp3"
-#define EXTENSION_SIZE 4
-#define FILENAME_LEN 128
 
 // Macros /////////////////////////////////////////////////////////////////////
 
@@ -58,11 +56,11 @@ static int check_wav_extension(char *filename)
     return -1;
   }
 
-  if (strlen(p) != EXTENSION_SIZE) {
+  if (strlen(p) != strlen(WAV_EXTENSION)) {
     return -1;
   }
 
-  for (i = 0; i < EXTENSION_SIZE; i++) {
+  for (i = 0; i < (int)strlen(WAV_EXTENSION); i++) {
     if (tolower(p[i]) != WAV_EXTENSION[i]) {
       return -1;
     }
@@ -76,8 +74,9 @@ static int get_wav_list(GList **filename_list, char *folder_name)
   struct dirent **namelist;
   int num_files;
   int i;
-  char filename_complete[PATH_MAX];
+  char *filename_complete;
 
+  g_assert(filename_list);
   g_assert(folder_name);
 
   num_files = scandir(folder_name, &namelist, NULL, alphasort);
@@ -87,11 +86,24 @@ static int get_wav_list(GList **filename_list, char *folder_name)
   }
 
   for (i = 0; i < num_files; i++) {
-    if (check_wav_extension(namelist[i]->d_name) == 0) {
-      snprintf(filename_complete, sizeof(filename_complete), "%s/%s", folder_name, namelist[i]->d_name);
-      *filename_list = g_list_append(*filename_list, g_strdup(filename_complete));
+    if (check_wav_extension(namelist[i]->d_name) != 0) {
+      g_free(namelist[i]);
+      continue;
     }
+
+    filename_complete = g_strdup_printf ("%s/%s", folder_name, namelist[i]->d_name);
+    if (!filename_complete) {
+      printf("Unable to allocate memory\n");
+      g_free(namelist[i]);
+      continue;
+    }
+
+    *filename_list = g_list_append(*filename_list, g_strdup(filename_complete));
+    g_free(filename_complete);
+    g_free(namelist[i]);
   }
+
+  g_free(namelist);
 
   return 0;
 }
@@ -143,15 +155,15 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
 
 static void *thread_func(void *arg)
 {
-  g_assert(arg);
-
-  mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
-  gpointer *p;
-  char filename_in[FILENAME_LEN];
-  char filename_out[FILENAME_LEN];
+  char *filename_in;
+  char *filename_out;
+  char *tmp;
   int8_t pos;
   lame_t gf;
+  gpointer *p;
 
+  g_assert(arg);
+  mp3_encoder_t *mp3_encoder = (mp3_encoder_t *) arg;
   g_assert(mp3_encoder);
 
   while (1) {
@@ -165,26 +177,45 @@ static void *thread_func(void *arg)
       break;
     }
 
-    gf = lame_init();
-    if (!gf) {
-      printf("Error during initialization\n");
-    }
-
     p = g_list_nth_data(mp3_encoder->filename_list, pos);
     if (p) {
 
-      memset(filename_in, '\0', sizeof(filename_in));
-      memset(filename_out, '\0', sizeof(filename_out));
+      filename_in = g_strdup((const char *)p);
+      if (!filename_in) {
+        printf("Unable get filename_in\n");
+        continue;
+      }
 
-      strncpy(filename_in, (const char *)p, sizeof(filename_in));
+      tmp = g_strndup(filename_in, strlen(filename_in) - strlen(WAV_EXTENSION));
+      if (!tmp) {
+        printf("Unable to allocate memory\n");
+        g_free(filename_in);
+        continue;
+      }
 
-      strncpy(filename_out, filename_in, strlen(filename_in) - EXTENSION_SIZE);
-      strncat(filename_out, MP3_EXTENSION, strlen(MP3_EXTENSION));
+      filename_out = g_strdup_printf("%s%s", tmp, MP3_EXTENSION);
+      if (!filename_out) {
+        printf("Unable to alocate memory\n");
+        g_free(filename_in);
+        g_free(tmp);
+        continue;
+      }
 
-      convert(gf, filename_in, filename_out);
+      gf = lame_init();
+      if (!gf) {
+        printf("Error during initialization\n");
+        break;
+      }
+
+      if (convert(gf, filename_in, filename_out) < 0) {
+        printf("Unable to converter\n");
+      }
+
+      lame_close(gf);
+      g_free(filename_in);
+      g_free(filename_out);
+      g_free(tmp);
     }
-
-    lame_close(gf);
   }
 
   return 0;
@@ -248,11 +279,15 @@ int mp3_encoder_finish(mp3_encoder_t *mp3_encoder)
 {
   int i;
 
+  g_assert(mp3_encoder);
+
   for (i = 0; i < mp3_encoder->num_cores; i++) {
-    pthread_join(mp3_encoder->thread[i], NULL);
+    if (mp3_encoder->thread[i]) {
+      pthread_join(mp3_encoder->thread[i], NULL);
+    }
   }
 
-  g_list_free(mp3_encoder->filename_list);
+  g_list_free_full(mp3_encoder->filename_list, g_free);
 
   pthread_mutex_destroy(&mp3_encoder->lock);
 

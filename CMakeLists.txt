@@ -29,7 +29,7 @@ endif()
 
 message(STATUS "The host processor is ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 
-set(CMAKE_C_FLAGS "-Wall -Werror -Wextra -pedantic")
+set(CMAKE_C_FLAGS "-Wall -Werror -Wextra -pedantic -ggdb3")
 
 #### glib
 pkg_check_modules (GLIB glib-2.0)

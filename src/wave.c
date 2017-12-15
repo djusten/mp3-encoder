@@ -18,11 +18,12 @@
 // Includes ///////////////////////////////////////////////////////////////////
 
 #include <byteswap.h>
-#include <stdint.h>
+#include <glib.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include "wave.h"
-#include <stdlib.h>
 
 // Definitions ////////////////////////////////////////////////////////////////
 
@@ -30,21 +31,36 @@
 
 // Datatypes, Structures and Enumerations /////////////////////////////////////
 
+typedef enum {
+  QUALITY_0 = 0, /* best */
+  QUALITY_1,
+  QUALITY_2,
+  QUALITY_3,
+  QUALITY_4,
+  QUALITY_5,     /* good */
+  QUALITY_6,
+  QUALITY_7,
+  QUALITY_8,
+  QUALITY_9      /* worst */
+} quality_t;
+
 // Private Functions Prototypes //////////////////////////////////////////////
 
 // Public Variables ///////////////////////////////////////////////////////////
 
 // Private Variables //////////////////////////////////////////////////////////
 
-static uint32_t const WAV_ID_RIFF = 0x52494646; /* "RIFF" */
-static uint32_t const WAV_ID_WAVE = 0x57415645; /* "WAVE" */
-static uint32_t const WAV_ID_FMT = 0x666d7420; /* "fmt " */
-static uint32_t const WAV_ID_DATA = 0x64617461; /* "data" */
+static uint32_t const WAV_ID_RIFF = 0x52494646;
+static uint32_t const WAV_ID_WAVE = 0x57415645;
+static uint32_t const WAV_ID_FMT = 0x666d7420;
+static uint32_t const WAV_ID_DATA = 0x64617461;
 
 // Private Functions //////////////////////////////////////////////////////////
 
 static void swap(header_t *header)
 {
+  g_assert(header);
+
   header->chunk_id = __bswap_32(header->chunk_id);
   header->format = __bswap_32(header->format);
   header->sub_chunk1_id = __bswap_32(header->sub_chunk1_id);
@@ -53,7 +69,12 @@ static void swap(header_t *header)
 
 static int encode_to_file(lame_global_flags *gfp, const short *left_pcm, const short *right_pcm, FILE *out, int num_samples)
 {
-  int mp3_buffer_size = num_samples * 5 / 4 + 7200; //FIXME
+  g_assert(gfp);
+  g_assert(left_pcm);
+  g_assert(right_pcm);
+  g_assert(out);
+
+  int mp3_buffer_size = num_samples * 5 / 4 + 7200;
   unsigned char mp3_buffer[mp3_buffer_size];
 
   int mp3_size = lame_encode_buffer(gfp, left_pcm, right_pcm, num_samples, mp3_buffer, mp3_buffer_size);
@@ -83,6 +104,9 @@ static int skip_extension(header_t *header, FILE *music_in)
   uint8_t i;
   uint32_t data = 0;
 
+  g_assert(header);
+  g_assert(music_in);
+
   fread(&skip, 1, sizeof(skip), music_in);
   skip = __bswap_16(skip);
 
@@ -105,6 +129,9 @@ static int skip_extension(header_t *header, FILE *music_in)
 
 int wave_read_header(header_t *header, FILE *music_in)
 {
+  g_assert(header);
+  g_assert(music_in);
+
   fread(header, 1, sizeof(header_t), music_in);
 
   swap(header);
@@ -125,6 +152,7 @@ int wave_read_header(header_t *header, FILE *music_in)
   }
 
   if (header->format != WAV_ID_WAVE) {
+    printf("Unsupported audio format\n");
     return -1;
   }
 
@@ -141,24 +169,46 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_o
   FILE *outf;
   int idx;
 
-  outf = fopen(filename_out, "w+b");
+  g_assert(header);
+  g_assert(music_in);
+  g_assert(filename_out);
 
-  lame_set_brate(gf, 192); // increase bitrate FIXME
-  lame_set_quality(gf, 3); //FIXME
+  outf = fopen(filename_out, "w+b");
+  if (!outf) {
+    printf("Unbale opeb destination file: %sd\n", filename_out);
+    return -1;
+  }
+
+  lame_set_quality(gf, QUALITY_5);
   lame_set_bWriteVbrTag(gf, 0);
 
   short *left_pcm = malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
+  if (!left_pcm) {
+    printf("Unable to allocate memory\n");
+    return -1;
+  }
+
   short *right_pcm = malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
+  if (!right_pcm) {
+    printf("Unable to allocate memory\n");
+    g_free(left_pcm);
+    return -1;
+  }
 
   int num_samples = header->sub_chunk2_size / header->block_align;
   for (idx = 0; idx < num_samples; idx++) {
-    fread(&left_pcm[idx], 1, 2, music_in);
-    fread(&right_pcm[idx], 1, 2, music_in);
+    fread(&left_pcm[idx], 1, sizeof(short), music_in);
+    fread(&right_pcm[idx], 1, sizeof(short), music_in);
   }
 
   lame_set_num_channels(gf, header->num_channels);
   lame_set_num_samples(gf, header->sub_chunk2_size / header->block_align);
   lame_set_in_samplerate(gf, header->sample_ratio);
+
+  if (header->bit_per_sample <= 0) {
+    printf("Unsupported bits per sample: %d\n", header->bit_per_sample);
+    return -1;
+  }
 
   if (lame_init_params(gf) != 0) {
     printf("Error init params\n");
@@ -177,9 +227,6 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_o
   }
 
   fclose(outf);
-
-  lame_close(gf);
-
   free(left_pcm);
   free(right_pcm);
 

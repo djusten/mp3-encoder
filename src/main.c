@@ -48,10 +48,10 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
-  char folder_name[PATH_MAX];
+  char *folder_name;
+  struct timeval tv1, tv2;
   mp3_encoder_t mp3_encoder;
 
-  struct timeval  tv1, tv2;
   gettimeofday(&tv1, NULL);
 
   if (argc != MAX_ARGS) {
@@ -59,15 +59,19 @@ int main(int argc, char **argv)
     return -1;
   }
 
-  if (!strncpy(folder_name, argv[1], sizeof(folder_name))) {
+  folder_name = strdup (argv[1]);
+  if (!folder_name) {
     printf("Unable get folder name\n");
     return -1;
   }
 
   if (mp3_encoder_init(&mp3_encoder, folder_name) < 0) {
     printf("Unable init mp3 encoder\n");
+    g_free(folder_name);
     return -1;
   }
+
+  g_free(folder_name);
 
   if (mp3_encoder_process(&mp3_encoder) < 0) {
     printf("Error processing\n");

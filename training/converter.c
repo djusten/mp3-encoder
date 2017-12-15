@@ -5,8 +5,6 @@
 #include <byteswap.h>
 #include <lame/lame.h>
 
-#define         MAX_U_32_NUM            0xFFFFFFFF
-
 typedef struct {
   uint32_t chunkId; //chunkID big
   uint32_t chunkSize; // chunkSize little
@@ -120,11 +118,6 @@ int main(int argc, char *argv[])
   int numSamples = header.subChunk2Size / header.blockAlign;
   FILE *outf = fopen("onion.mp3", "w+b");
 
-  /* set the defaults from info incase we cannot determine them from file */
-//  lame_set_num_samples(gf, MAX_U_32_NUM);
-
-//  lame_set_write_id3tag_automatic(gf, 0);
-
   lame_set_brate(gf, 192); // increase bitrate
   lame_set_quality(gf, 3);
   lame_set_bWriteVbrTag(gf, 0);
@@ -140,8 +133,6 @@ int main(int argc, char *argv[])
 
   lame_set_num_channels(gf, header.numChannels);
   lame_set_num_samples(gf, header.subChunk2Size / header.blockAlign);
-//  lame_set_in_samplerate(gf, header.sampleRatio);
-//  lame_set_num_samples(gf, header.subChunk2Size / (header.numChannels * ((header.bitPerSample + 7) / 8)));
 
   if (lame_init_params(gf) != 0) {
     printf("error init params\n");
