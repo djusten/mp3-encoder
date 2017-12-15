@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -81,7 +82,7 @@ static int get_wav_list(GList **filename_list, char *folder_name)
 
   num_files = scandir(folder_name, &namelist, NULL, alphasort);
   if (num_files < 0) {
-    printf("Error scandir: %s\n", folder_name);
+    printf("Error scandir: %s, %s\n", folder_name, strerror(errno));
     return -1;
   }
 

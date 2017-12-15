@@ -21,6 +21,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/time.h>
+#include <unistd.h>
+#include "defines.h"
 #include "mp3_encoder.h"
 
 // Definitions ////////////////////////////////////////////////////////////////
@@ -39,6 +41,12 @@
 
 // Private Functions //////////////////////////////////////////////////////////
 
+static void show_version(void)
+{
+  printf("mp3_encoder Version %s\n", APP_VERSION);
+  printf("Copyright (C) 2017  Diogo Justen. All rights reserved.\n");
+}
+
 static void usage(void)
 {
   printf("mp3_encoder <directory>\n");
@@ -48,6 +56,7 @@ static void usage(void)
 
 int main(int argc, char **argv)
 {
+  int opt;
   char *folder_name;
   struct timeval tv1, tv2;
   mp3_encoder_t mp3_encoder;
@@ -57,6 +66,18 @@ int main(int argc, char **argv)
   if (argc != MAX_ARGS) {
     usage();
     return -1;
+  }
+
+  opt = getopt(argc, argv, "vh");
+  switch (opt) {
+
+    case 'v':
+      show_version();
+    return 0;
+
+    case 'h':
+      usage();
+    return 0;
   }
 
   folder_name = strdup (argv[1]);

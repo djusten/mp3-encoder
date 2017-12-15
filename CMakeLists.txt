@@ -16,6 +16,7 @@
 cmake_minimum_required (VERSION 3.0)
 project (mp3encoder C)
 find_package (PkgConfig REQUIRED)
+set(VERSION 1.0)
 
 message(STATUS "We are on a ${CMAKE_SYSTEM_NAME} system")
 
@@ -50,6 +51,11 @@ else()
   target_link_libraries (mp3_encoder ${GLIB_LIBRARIES} libmp3lame m pthread)
 endif()
 
+configure_file (
+  "src/defines.h.in"
+  "defines.h"
+  )
+
 include_directories(
-  ${PROJECT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_BINARY_DIR}
   )
