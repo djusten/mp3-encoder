@@ -29,19 +29,19 @@
 // Datatypes, Structures and Enumerations /////////////////////////////////////
 
 typedef struct {
-  uint32_t chunkId;
-  uint32_t chunkSize;
+  uint32_t chunk_id;
+  uint32_t chunk_size;
   uint32_t format;
-  uint32_t subChunk1Id;
-  uint32_t subChunk1Size;
-  uint16_t audioFormat;
-  uint16_t numChannels;
-  uint32_t sampleRatio;
-  uint32_t byteRate;
-  uint16_t blockAlign;
-  uint16_t bitPerSample;
-  uint32_t subChunk2Id;
-  uint32_t subChunk2Size;
+  uint32_t sub_chunk1_id;
+  uint32_t sub_chunk1_size;
+  uint16_t audio_format;
+  uint16_t num_channels;
+  uint32_t sample_ratio;
+  uint32_t byte_rate;
+  uint16_t block_align;
+  uint16_t bit_per_sample;
+  uint32_t sub_chunk2_id;
+  uint32_t sub_chunk2_size;
 } header_t;
 
 // Public Variabels ///////////////////////////////////////////////////////////
