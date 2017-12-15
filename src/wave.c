@@ -67,7 +67,11 @@ static void swap(header_t *header)
   header->sub_chunk2_id = __bswap_32(header->sub_chunk2_id);
 }
 
-static int encode_to_file(lame_global_flags *gfp, const short *left_pcm, const short *right_pcm, FILE *out, int num_samples)
+static int encode_to_file(lame_global_flags *gfp,
+                           const short *left_pcm,
+                           const short *right_pcm,
+                           FILE *out,
+                           int num_samples)
 {
   g_assert(gfp);
   g_assert(left_pcm);
@@ -77,7 +81,12 @@ static int encode_to_file(lame_global_flags *gfp, const short *left_pcm, const s
   int mp3_buffer_size = num_samples * 5 / 4 + 7200;
   unsigned char mp3_buffer[mp3_buffer_size];
 
-  int mp3_size = lame_encode_buffer(gfp, left_pcm, right_pcm, num_samples, mp3_buffer, mp3_buffer_size);
+  int mp3_size = lame_encode_buffer(gfp,
+                                    left_pcm,
+                                    right_pcm,
+                                    num_samples,
+                                    mp3_buffer,
+                                    mp3_buffer_size);
   if (!(mp3_size > 0)) {
     printf("No data was encoded by lame_encode_buffer. Return code:%d \n", mp3_size);
     return -1;
@@ -182,13 +191,15 @@ int wave_converter(header_t *header, lame_t gf, FILE *music_in, char *filename_o
   lame_set_quality(gf, QUALITY_5);
   lame_set_bWriteVbrTag(gf, 0);
 
-  short *left_pcm = malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
+  short *left_pcm =
+    malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
   if (!left_pcm) {
     printf("Unable to allocate memory\n");
     return -1;
   }
 
-  short *right_pcm = malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
+  short *right_pcm =
+    malloc(header->sub_chunk2_size / header->num_channels * sizeof(short));
   if (!right_pcm) {
     printf("Unable to allocate memory\n");
     g_free(left_pcm);

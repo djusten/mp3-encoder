@@ -153,7 +153,7 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
   return 0;
 }
 
-static void *thread_func(void *arg)
+static void *thread_process(void *arg)
 {
   char *filename_in;
   char *filename_out;
@@ -228,6 +228,7 @@ int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
   g_assert(mp3_encoder);
   g_assert(folder_name);
 
+  memset(mp3_encoder, '\0', sizeof(mp3_encoder_t));
   mp3_encoder->filename_list = NULL;
   mp3_encoder->num_cores = 0;
   mp3_encoder->process_pos = 0;
@@ -245,7 +246,9 @@ int mp3_encoder_init(mp3_encoder_t *mp3_encoder, char *folder_name)
 
 #ifdef DEBUG
   GList *elem;
-  for (elem = g_list_first(mp3_encoder->filename_list); elem != NULL ; elem = g_list_next(elem)) {
+  for (elem = g_list_first(mp3_encoder->filename_list);
+        elem != NULL ;
+        elem = g_list_next(elem)) {
     printf("%s\n", (char *) elem->data);
   }
 #endif
@@ -267,7 +270,10 @@ int mp3_encoder_process(mp3_encoder_t *mp3_encoder)
   g_assert(mp3_encoder);
 
   for (i = 0; i < mp3_encoder->num_cores; i++) {
-    if (pthread_create(&mp3_encoder->thread[i], NULL, thread_func, mp3_encoder) != 0) {
+    if (pthread_create(&mp3_encoder->thread[i],
+                         NULL,
+                         thread_process,
+                         mp3_encoder) != 0) {
       printf("Unable create thread%d\n", i);
     }
   }
@@ -287,7 +293,9 @@ int mp3_encoder_finish(mp3_encoder_t *mp3_encoder)
     }
   }
 
-  g_list_free_full(mp3_encoder->filename_list, g_free);
+  if (mp3_encoder->filename_list) {
+    g_list_free_full(mp3_encoder->filename_list, g_free);
+  }
 
   pthread_mutex_destroy(&mp3_encoder->lock);
 
