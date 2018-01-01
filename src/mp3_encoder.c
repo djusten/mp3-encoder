@@ -154,7 +154,7 @@ static int convert(lame_t gf, char *filename_in, char *filename_out)
   return 0;
 }
 
-static void *thread_process(void *arg)
+static void *thread_converter(void *arg)
 {
   char *filename_in;
   char *filename_out;
@@ -273,7 +273,7 @@ int mp3_encoder_process(mp3_encoder_t *mp3_encoder)
   for (i = 0; i < mp3_encoder->num_cores; i++) {
     if (pthread_create(&mp3_encoder->thread[i],
                          NULL,
-                         thread_process,
+                         thread_converter,
                          mp3_encoder) != 0) {
       printf("Unable create thread%d\n", i);
     }
